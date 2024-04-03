@@ -1,0 +1,2 @@
+gtfparse==2.5.0
+polars==0.20.18
