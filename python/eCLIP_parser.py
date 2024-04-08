@@ -19,12 +19,11 @@ def trim_chr(x):
     return sp[0] if len(sp) == 1 else sp[1].replace('v', '.')
 
 
+
 def main():
     
     # read the metadata file
     df_m = pl.read_csv('../data/eCLIP/metadata.tsv', separator='\t')
-    
-    # create the list of eCLIP narrow bed files to download
     file_list = df_m.filter((pl.col('File assembly') == 'GRCh38') & (pl.col('Biological replicate(s)') == '1, 2')).select(pl.col('File download URL')).to_numpy().flatten()
 
     # download the eCLIP files
@@ -39,14 +38,16 @@ def main():
         except Exception as e:
             print('Cannot download file {} due to {}'.format(file.split('/')[-1], e))
 
+
     # download the correct gtf version
     gtf_version = '29'
     gtf_url = 'https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_'+gtf_version+'/gencode.v'+gtf_version+'.primary_assembly.annotation.gtf.gz'
     gtf_path = '../data/gtf/gencode.v'+gtf_version+'.primary_assembly.annotation.gtf'
     if not os.path.isfile(gtf_path):
         request.urlretrieve(gtf_url, gtf_path)
-    df = read_gtf(gtf_path)
-    df_f = df.filter(pl.col('feature') == 'transcript').select(pl.col('seqname', 'start', 'end', 'strand', 'gene_id', 'transcript_id'))
+    df_f = read_gtf(gtf_path)
+    df_f = df_f.filter(pl.col('feature') == 'transcript').select(pl.col('seqname', 'start', 'end', 'strand', 'gene_id', 'transcript_id'))
+
 
     # read all the eCLIP bed files
     queries = []
@@ -61,7 +62,6 @@ def main():
         rbp = df_m.filter(pl.col('File accession') == f_acc).select(pl.col('Experiment target')).to_numpy()[0][0].split('-')[0]
         q = q.with_columns(RBP = pl.lit(rbp))
         q = q.with_columns(cell_line = pl.lit(c_line))
-        
         # fix the "." problem in 27 experiments
         if q.filter(pl.col('dataset_label') == '.').shape[0] > 0:
             q = q.with_columns(pl.lit(rbp+'_'+c_line+'_.').alias('dataset_label'))
@@ -69,14 +69,14 @@ def main():
     df_e = pl.concat(queries)
     df_e = df_e.with_columns(pl.col('chr').apply(trim_chr))
 
+
     # compare the chromosomes in the eCLIP data with that in the GTF
     compare = False
     if compare:
-        l_chr_e = df_e.select(pl.col('chr')).unique().to_numpy().flatten()
-        l_chr_f = df_f.select(pl.col('seqname')).unique().to_numpy().flatten()
-        print('chr in eCLIP but not in GTF: {}'.format(set(l_chr_e) - set(l_chr_f)))
-        print('chr in GTF but not in eCLIP: {}'.format(set(l_chr_f) - set(l_chr_e)))
-
+    	l_chr_e = df_e.select(pl.col('chr')).unique().to_numpy().flatten()
+    	l_chr_f = df_f.select(pl.col('seqname')).unique().to_numpy().flatten()
+    	print('chr in eCLIP but not in GTF: {}'.format(set(l_chr_e) - set(l_chr_f)))
+    	print('chr in GTF but not in eCLIP: {}'.format(set(l_chr_f) - set(l_chr_e)))
 
     # blend in the eCLIP data with the GTF file
     queries = []
@@ -86,17 +86,16 @@ def main():
             df_tmp = df_tmp.with_columns(featureStart = pl.lit(row['start']))
             df_tmp = df_tmp.with_columns(featureEnd = pl.lit(row['end']))
             df_tmp = df_tmp.with_columns(frame = pl.lit(row['strand']))
-            df_tmp = df_tmp.with_columns(ENSG = pl.lit(row['gene_id']))
-            df_tmp = df_tmp.with_columns(ENST = pl.lit(row['transcript_id']))
+            df_tmp = df_tmp.with_columns(ENSG = pl.lit(row['gene_id'].split('.')[0]))
+            df_tmp = df_tmp.with_columns(ENST = pl.lit(row['transcript_id'].split('.')[0]))
             queries.append(df_tmp)
 
     df_a = pl.concat(queries)
-    
-    # save the result
+
+    # save results in a zipped csv
     df_a.to_pandas().to_csv('../data/eCLIP/eCLIP_ENCODE_merged_April_2024_GRCh38_GENCODEv'+gtf_version+'.csv.gz', index=False)
-    
+
     
 if __name__ == "__main__":
     # execute only if run as a script
     main()
-
