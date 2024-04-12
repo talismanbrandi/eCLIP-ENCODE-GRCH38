@@ -73,15 +73,18 @@ def main():
     # compare the chromosomes in the eCLIP data with that in the GTF
     compare = False
     if compare:
-    	l_chr_e = df_e.select(pl.col('chr')).unique().to_numpy().flatten()
-    	l_chr_f = df_f.select(pl.col('seqname')).unique().to_numpy().flatten()
-    	print('chr in eCLIP but not in GTF: {}'.format(set(l_chr_e) - set(l_chr_f)))
-    	print('chr in GTF but not in eCLIP: {}'.format(set(l_chr_f) - set(l_chr_e)))
+        l_chr_e = df_e.select(pl.col('chr')).unique().to_numpy().flatten()
+        l_chr_f = df_f.select(pl.col('seqname')).unique().to_numpy().flatten()
+        print('chr in eCLIP but not in GTF: {}'.format(set(l_chr_e) - set(l_chr_f)))
+        print('chr in GTF but not in eCLIP: {}'.format(set(l_chr_f) - set(l_chr_e)))
 
     # blend in the eCLIP data with the GTF file
     queries = []
     for row in df_f.iter_rows(named=True):
-        df_tmp = df_e.filter((pl.col('start') >= row['start']) & (pl.col('stop') <= row['end']) & (pl.col('chr') == row['seqname']))
+        df_tmp = df_e.filter((pl.col('start') >= row['start']) 
+                             & (pl.col('stop') <= row['end']) 
+                             & (pl.col('chr') == row['seqname']) 
+                             & (pl.col('strand') == row['strand']))
         if df_tmp.shape[0] != 0:
             df_tmp = df_tmp.with_columns(featureStart = pl.lit(row['start']))
             df_tmp = df_tmp.with_columns(featureEnd = pl.lit(row['end']))
