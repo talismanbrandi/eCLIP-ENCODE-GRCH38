@@ -1,2 +1,4 @@
 gtfparse==2.5.0
 polars==0.20.18
+pandas==2.0.3
+gitpython==3.1.43

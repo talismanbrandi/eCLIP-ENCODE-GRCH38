@@ -6,7 +6,9 @@ import polars as pl
 import glob
 import urllib.request as request
 import os
-
+import logging
+import sys
+import git
 
 def trim_chr(x):
     ''' function for aligning the chromosomes in the GTF with the eCLIP data
@@ -19,30 +21,56 @@ def trim_chr(x):
     return sp[0] if len(sp) == 1 else sp[1].replace('v', '.')
 
 
+def get_git_root(path):
 
+        git_repo = git.Repo(path, search_parent_directories=True)
+        git_root = git_repo.git.rev_parse("--show-toplevel")
+        return git_root
+        
+
+def init_logging():
+    for handler in logging.root.handlers[:]:
+        logging.root.removeHandler(handler)
+        
+    logging.basicConfig(filename='eCLIP_ENCODE.log', filemode='a', format='%(levelname)s [%(asctime)s]: %(message)s', level=logging.INFO, datefmt='%I:%M:%S')
+    st = logging.StreamHandler(sys.stdout)
+    st.setFormatter(logging.Formatter('%(levelname)s [%(asctime)s]: %(message)s', datefmt='%I:%M:%S'))
+    logging.getLogger().addHandler(st)
+        
+        
 def main():
     
+    verbose = False
+    
+    init_logging()
+    
+    git_path = get_git_root('.')
+    
     # read the metadata file
-    df_m = pl.read_csv('../data/eCLIP/metadata.tsv', separator='\t')
+    logging.info(f'reading metadata file from {git_path}/data/eCLIP/metadata.tsv for list of eCLIP experiments')
+    df_m = pl.read_csv(git_path+'/data/eCLIP/metadata.tsv', separator='\t')
     file_list = df_m.filter((pl.col('File assembly') == 'GRCh38') & (pl.col('Biological replicate(s)') == '1, 2')).select(pl.col('File download URL')).to_numpy().flatten()
 
     # download the eCLIP files
+    logging.info(f'downloading eCLIP bed files from ENCODE and saving to {git_path}/data/eCLIP/')
     i = 0
     for file in file_list:
         try:
-            path = '../data/eCLIP/'+file.split('/')[-1]
+            path = git_path+'/data/eCLIP/'+file.split('/')[-1]
             if not os.path.isfile(path):
                 request.urlretrieve(file, path)
                 i += 1
-                print('\rDownloaded file no. {}: {}'.format(i, file.split('/')[-1]), end="")
+                if verbose:
+                    logging.info('Downloaded file no. {}: {}'.format(i, file.split('/')[-1]))
         except Exception as e:
-            print('Cannot download file {} due to {}'.format(file.split('/')[-1], e))
+            logging.error('Cannot download file {} due to {}'.format(file.split('/')[-1], e))
 
 
     # download the correct gtf version
     gtf_version = '29'
+    logging.info(f'downloading primary assembly GTF v{gtf_version} to {git_path}/data/gtf')
     gtf_url = 'https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_'+gtf_version+'/gencode.v'+gtf_version+'.primary_assembly.annotation.gtf.gz'
-    gtf_path = '../data/gtf/gencode.v'+gtf_version+'.primary_assembly.annotation.gtf'
+    gtf_path = git_path+'/data/gtf/gencode.v'+gtf_version+'.primary_assembly.annotation.gtf'
     if not os.path.isfile(gtf_path):
         request.urlretrieve(gtf_url, gtf_path)
     df_f = read_gtf(gtf_path)
@@ -50,6 +78,7 @@ def main():
 
 
     # read all the eCLIP bed files
+    logging.info(f'reading all the bed files')
     queries = []
     l_cols = ["chr", "start", "stop", "dataset_label", "1000", "strand", 
                "log2(eCLIP fold-enrichment over size-matched input)", 
@@ -67,7 +96,7 @@ def main():
             q = q.with_columns(pl.lit(rbp+'_'+c_line+'_.').alias('dataset_label'))
         queries.append(q)
     df_e = pl.concat(queries)
-    df_e = df_e.with_columns(pl.col('chr').apply(trim_chr))
+    df_e = df_e.with_columns(pl.col('chr').map_elements(trim_chr, return_dtype=pl.String))
 
 
     # compare the chromosomes in the eCLIP data with that in the GTF
@@ -75,10 +104,12 @@ def main():
     if compare:
         l_chr_e = df_e.select(pl.col('chr')).unique().to_numpy().flatten()
         l_chr_f = df_f.select(pl.col('seqname')).unique().to_numpy().flatten()
-        print('chr in eCLIP but not in GTF: {}'.format(set(l_chr_e) - set(l_chr_f)))
-        print('chr in GTF but not in eCLIP: {}'.format(set(l_chr_f) - set(l_chr_e)))
+        if verbose:
+            logging.info('chr in eCLIP but not in GTF: {}'.format(set(l_chr_e) - set(l_chr_f)))
+            logging.info('chr in GTF but not in eCLIP: {}'.format(set(l_chr_f) - set(l_chr_e)))
 
     # blend in the eCLIP data with the GTF file
+    logging.info(f'merging eCLIP data with GTF annotations')
     queries = []
     for row in df_f.iter_rows(named=True):
         df_tmp = df_e.filter((pl.col('start') >= row['start']) 
@@ -96,7 +127,8 @@ def main():
     df_a = pl.concat(queries)
 
     # save results in a zipped csv
-    df_a.to_pandas().to_csv('../data/eCLIP/eCLIP_ENCODE_merged_April_2024_GRCh38_GENCODEv'+gtf_version+'.csv.gz', index=False)
+    logging.info(f'saving annotated eCLIp file to: {git_path}/data/eCLIP/eCLIP_ENCODE_merged_April_2024_GRCh38_GENCODEv{gtf_version}.csv.gz')
+    df_a.to_pandas().to_csv(git_path+'/data/eCLIP/eCLIP_ENCODE_merged_April_2024_GRCh38_GENCODEv'+gtf_version+'.csv.gz', index=False)
 
     
 if __name__ == "__main__":
