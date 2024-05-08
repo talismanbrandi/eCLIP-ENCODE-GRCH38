@@ -22,17 +22,22 @@ def trim_chr(x):
 
 
 def get_git_root(path):
-
-        git_repo = git.Repo(path, search_parent_directories=True)
-        git_root = git_repo.git.rev_parse("--show-toplevel")
-        return git_root
+    ''' gets the root of the git repository
+    '''
+    git_repo = git.Repo(path, search_parent_directories=True)
+    git_root = git_repo.git.rev_parse("--show-toplevel")
+    return git_root
         
 
-def init_logging():
+def init_logging(file):
+    ''' initialize the logger
+        argument:
+            file: name of the file to log the output to
+    '''
     for handler in logging.root.handlers[:]:
         logging.root.removeHandler(handler)
         
-    logging.basicConfig(filename='eCLIP_ENCODE.log', filemode='a', format='%(levelname)s [%(asctime)s]: %(message)s', level=logging.INFO, datefmt='%I:%M:%S')
+    logging.basicConfig(filename=file, filemode='a', format='%(levelname)s [%(asctime)s]: %(message)s', level=logging.INFO, datefmt='%I:%M:%S')
     st = logging.StreamHandler(sys.stdout)
     st.setFormatter(logging.Formatter('%(levelname)s [%(asctime)s]: %(message)s', datefmt='%I:%M:%S'))
     logging.getLogger().addHandler(st)
@@ -42,7 +47,7 @@ def main():
     
     verbose = False
     
-    init_logging()
+    init_logging('eCLIP_ENCODE.log')
     
     git_path = get_git_root('.')
     
