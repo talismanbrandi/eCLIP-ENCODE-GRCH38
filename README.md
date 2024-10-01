@@ -24,6 +24,6 @@ Directory structure:
     └── requirements.txt
 ```
 
-__data/eCLIP__: contains all the eCLIP file from ENCODE
-__data/eCLIP-all__ is a placeholder for pull all replicates and merged files for the eCLIP experiments
-__python__: code for downloading and parsing gtfs and eCLIP data
+__data/eCLIP__: contains all the eCLIP file from ENCODE  
+__data/eCLIP-all__ is a placeholder for pull all replicates and merged files for the eCLIP experiments  
+__python__: code for downloading and parsing gtfs and eCLIP data  
