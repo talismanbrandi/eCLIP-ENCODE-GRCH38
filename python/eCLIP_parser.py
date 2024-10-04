@@ -72,7 +72,7 @@ def main():
 
 
     # download the correct gtf version
-    gtf_version = '29'
+    gtf_version = '46'
     logging.info(f'downloading primary assembly GTF v{gtf_version} to {git_path}/data/gtf')
     gtf_url = 'https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_'+gtf_version+'/gencode.v'+gtf_version+'.primary_assembly.annotation.gtf.gz'
     gtf_path = git_path+'/data/gtf/gencode.v'+gtf_version+'.primary_assembly.annotation.gtf'
