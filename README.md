@@ -129,6 +129,5 @@ The kill -9 command should be used cautiously to terminate processes.
 
 Confirm sequence integrity after sed modifications before proceeding with PRIESSTESS.
 
-command to count directies 
 
 ls -d */ | wc -l
