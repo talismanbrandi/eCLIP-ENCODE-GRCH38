@@ -69,7 +69,7 @@ eclip-priesstess-motif-pipeline/
 │  ├─ tomtom/
 │  └─ summary/
 │     ├─ combined_tomtom.tsv
-│     └─ combined_tomtom_jaspar.tsv
+│
 └─ logs/
 ```
 
